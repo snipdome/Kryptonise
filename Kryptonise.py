@@ -481,9 +481,21 @@ def get_info_from_log(logFile):
 	# This method reads the log file and extracts the roto-translation information
 	#
 	# Useful information: 
-	# - Scanning position (
+	# - Scanning position 
 	# - First section
-	log_kwargs = {}
+	# - Image Pixel Size (um)
+	log_kwargs = {
+		'scanning_pos': 'Scanning position',
+		'proj_start': 'First section',
+		'vox_size': 'Image Pixel Size (um)',
+	}
+	for line in logFile:
+		for key, value in log_kwargs.items():
+			if value in line:
+				log_kwargs[key] = line.split("=")[1].strip()
+	return log_kwargs
+
+
 
 
 
@@ -569,8 +581,11 @@ def process_kernel(**kwargs):
 	if len(logFiles) == 0:
 		logging.warning("No log file found in the directory. The mesh will not be roto-translated.")
 	else:
+		logging.info(f"Opening log file {logFiles[0]}")
 		logFile = open(logFiles[0], "r")
 		log_kwargs = get_info_from_log(logFile)
+		logFile.close()
+		print(log_kwargs)
 
 	# Roto-translate the mesh
 	if log_kwargs is not None:
