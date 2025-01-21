@@ -458,11 +458,45 @@ def checkInputs(**kwargs):
 # 		#print(f"{segmentName} volume = {volume_mm3} mm3")
 # 		logging.info(f"This stone has {volume_mm3*0.01757625:.2f} Ct\n\n")
 		
+def decimate_mesh(mesh, **kwargs):
+
+	decimate = vtk.vtkDecimatePro()
+	decimate.SetInputData(mesh)
+	decimate.SetTargetReduction(kwargs['target_reduction']) if 'target_reduction' in kwargs else None
+	decimate.PreserveTopologyOn()
+	print(f"Decimating mesh with target reduction {kwargs['target_reduction']}. Starting with {mesh.GetNumberOfPoints()} points")
+	decimate.Update()
+	print(f"Decimated mesh has {decimate.GetOutput().GetNumberOfPoints()} points")
+	return decimate.GetOutput()
+
+def select_biggest_connected_component(mesh, **kwargs):
+	# get the biggest 
+	connected = vtk.vtkPolyDataConnectivityFilter()
+	connected.SetInputData(mesh)
+	connected.SetExtractionModeToLargestRegion()
+	connected.Update()
+	return connected.GetOutput()
+
+def get_info_from_log(logFile):
+	# This method reads the log file and extracts the roto-translation information
+	#
+	# Useful information: 
+	# - Scanning position (
+	# - First section
+	log_kwargs = {}
+
+
+
 
 def process_kernel(**kwargs):
 		
 	inputLabelMap = slicer.mrmlScene.GetNodeByID(kwargs['inputLabelMap'])
 	outputMesh = slicer.mrmlScene.GetNodeByID(kwargs['outputMesh'])
+
+	
+
+	target_vertex_count = 1e5
+
 
 
 	"""
@@ -484,19 +518,72 @@ def process_kernel(**kwargs):
 	
 	# get vtk polydata mesh from the input labelmap
 	timings["GetMesh"] = -time.time()
-	# Get the vtk polydata mesh from the input labelmap
 	mesh = vtk.vtkPolyData()
-	# use GetClosedSurfaceRepresentation
 	segment_id = inputLabelMap.GetSegmentation().GetSegmentIdBySegmentName("Stone")
 	inputLabelMap.GetClosedSurfaceRepresentation(segment_id, mesh)
 	timings["GetMesh"] += time.time()
 
-	# put the mesh into the output mesh
-	timings["SetMesh"] = -time.time()
-	outputMesh.SetAndObservePolyData(mesh)
-	timings["SetMesh"] += time.time()
 
-	# end
+	# get the largest connected component
+	timings["LargestConnectedComponent"] = -time.time()
+	mesh = select_biggest_connected_component(mesh)
+	timings["LargestConnectedComponent"] += time.time()
+
+	# decimate the mesh
+	timings["DecimateMesh"] = -time.time()
+	decimate_kwargs = {}
+	decimate_kwargs['target_reduction'] = (1 - target_vertex_count / mesh.GetNumberOfPoints()) if mesh.GetNumberOfPoints() > target_vertex_count else 0
+	mesh = decimate_mesh(mesh, **decimate_kwargs)
+	timings["DecimateMesh"] += time.time()
+
+	# Get input storage node
+	inputStorageNode = inputLabelMap.GetStorageNode()
+	if inputStorageNode is None:
+		logging.warning("No storage node found for the input labelmap. It will be inferred from the other nodes.")
+		# open all the other nodes and get the paths of them. The longest one will be the output path
+		for node in slicer.mrmlScene.GetNodesByClass("vtkMRMLStorageNode"):
+			inputStorageNodes = []
+			if node.GetStorageNode() is not None:
+				inputStorageNodes.append(node.GetStorageNode())
+		if len(inputStorageNodes) == 0:
+			# set the path to the desktop on windows or home on linux
+			inputDirectory = str( os.path.join(os.path.expanduser('~'), 'Desktop') ) if os.name == 'nt' else str( os.path.expanduser('~') )
+		else:
+			inputStorageNode = inputStorageNode[0]
+			for node in inputStorageNode:
+				if len(node.GetFileName()) > len(inputStorageNodes.GetFileName()):
+					# conditional assignment if it is a windows or linux path
+					inputDirectory = node.GetFileName().rsplit("\\", 1)[0] if os.name == 'nt' else node.GetFileName().rsplit("/", 1)[0]
+					#outputPath = node.GetFileName().rsplit(".", 1)[0] + "_mesh.obj"
+	else:
+		#outputPath = inputStorageNode.GetFileName().rsplit(".", 1)[0] + "_mesh.obj"
+		inputDirectory = inputStorageNode.GetFileName().rsplit("/", 1)[0] if os.name == 'nt' else inputStorageNode.GetFileName().rsplit("\\", 1)[0]
+
+	# Read the log file for information about the rototranslation. For this, get all the .log files in the directory inputDirectory
+	logFiles = []
+	logFile = None
+	for file in os.listdir(inputDirectory):
+		if file.endswith(".log"):
+			logFiles.append(file)
+	# open the first log file
+	if len(logFiles) == 0:
+		logging.warning("No log file found in the directory. The mesh will not be roto-translated.")
+	else:
+		logFile = open(logFiles[0], "r")
+		log_kwargs = get_info_from_log(logFile)
+
+	# Roto-translate the mesh
+	if log_kwargs is not None:
+		pass
+
+	if log_kwargs is not None:
+		# put the mesh into the output mesh
+		timings["SetMeshAndSave"] = -time.time()
+		outputMesh.SetAndObservePolyData(mesh)
+		outputPath = os.path.join(inputDirectory, outputMesh.GetName() + ".obj")
+		outputMesh.GetStorageNode().SetFileName(outputPath)
+		outputMesh.GetStorageNode().WriteData(outputMesh)
+		timings["SetMeshAndSave"] += time.time()
 
 	timings["Total"] += time.time()
 
