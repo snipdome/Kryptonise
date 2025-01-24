@@ -57,7 +57,7 @@ class Kryptonise(ScriptedLoadableModule):
 	def __init__(self, parent):
 		ScriptedLoadableModule.__init__(self, parent)
 		self.parent.title = _("Kryptonise")  
-		self.parent.categories = [translate("qSlicerAbstractCoreModule", "Meshing")]
+		self.parent.categories = [translate("qSlicerAbstractCoreModule", "Post-Process")]
 		self.parent.dependencies = []
 		self.parent.contributors = ["Domenico Iuso (imec-Visionlab, UAntwerp)"] 
 		self.parent.helpText = _("""
@@ -477,6 +477,32 @@ def select_biggest_connected_component(mesh, **kwargs):
 	connected.Update()
 	return connected.GetOutput()
 
+def get_data_directory( inputLabelMap, debug ):
+		inputStorageNode = inputLabelMap.GetStorageNode()
+		if inputStorageNode is None:
+			logging.warning("No storage node found for the input labelmap. It will be inferred from the other nodes.")
+			# open all the other nodes and get the paths of them. The longest one will be the output path
+			inputStorageNodes = []
+			for node in list(slicer.mrmlScene.GetNodesByClass("vtkMRMLStorageNode")) + list(slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode")) + list(slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")):
+				print(f'Checking node {node.GetID()} with name {node.GetName()}') if debug.value > 0 else None
+				try:
+					if node.GetStorageNode():
+						inputStorageNodes.append(node.GetStorageNode())
+				except:
+					pass
+
+			if len(inputStorageNodes) == 0:
+				logging.warning("No storage node found in the scene. Defaulting to the desktop.")
+				inputDirectory = str( os.path.join(os.path.expanduser('~'), 'Desktop') ) if os.name == 'nt' else str( os.path.expanduser('~') )
+			else:
+				inputDirectory = ""
+				for node in inputStorageNodes:
+					if len(node.GetFileName()) > len(inputDirectory):
+						inputDirectory = os.path.dirname(node.GetFileName())
+				logging.info(f"Input storage node found: {inputDirectory}") if debug.value > 0 else None
+		else:
+			inputDirectory = os.path.dirname(inputStorageNode.GetFileName())
+
 def get_info_from_log(logFile):
 	# This method reads the log file and extracts the roto-translation information
 	#
@@ -486,16 +512,34 @@ def get_info_from_log(logFile):
 	# - Image Pixel Size (um)
 	log_kwargs = {
 		'scanning_pos': 'Scanning position',
-		'proj_start': 'First section',
+		'proj_start': 'First Section',
 		'vox_size': 'Image Pixel Size (um)',
 	}
 	for line in logFile:
 		for key, value in log_kwargs.items():
 			if value in line:
-				log_kwargs[key] = line.split("=")[1].strip()
+				log_kwargs[key] = line.split("=")[1].split(" ")[0].strip('\n')	
+
+	for key, value in log_kwargs.items():
+		log_kwargs[key] = float(value)
 	return log_kwargs
 
-
+def get_scan_info(inputDirectory):
+		# Read the log file for information about the rototranslation. For this, get all the .log files in the directory inputDirectory
+		
+		logFiles = []
+		for file in os.listdir(inputDirectory):
+			if file.endswith(".log"):
+				logFiles.append(os.path.join(inputDirectory, file))
+		log_kwargs = None
+		
+		if len(logFiles) == 0: # open the first log file
+			logging.warning("No log file found in the directory. The mesh will not be roto-translated.")
+		else:
+			logging.info(f"Opening log file {logFiles[0]}")
+			with open(logFiles[0], "r") as logFile:
+				log_kwargs = get_info_from_log(logFile)
+		return log_kwargs
 
 
 
@@ -548,57 +592,25 @@ def process_kernel(**kwargs):
 	mesh = decimate_mesh(mesh, **decimate_kwargs)
 	timings["DecimateMesh"] += time.time()
 
-	# Get input storage node
-	inputStorageNode = inputLabelMap.GetStorageNode()
-	if inputStorageNode is None:
-		logging.warning("No storage node found for the input labelmap. It will be inferred from the other nodes.")
-		# open all the other nodes and get the paths of them. The longest one will be the output path
-		for node in slicer.mrmlScene.GetNodesByClass("vtkMRMLStorageNode"):
-			inputStorageNodes = []
-			if node.GetStorageNode() is not None:
-				inputStorageNodes.append(node.GetStorageNode())
-		if len(inputStorageNodes) == 0:
-			# set the path to the desktop on windows or home on linux
-			inputDirectory = str( os.path.join(os.path.expanduser('~'), 'Desktop') ) if os.name == 'nt' else str( os.path.expanduser('~') )
-		else:
-			inputStorageNode = inputStorageNode[0]
-			for node in inputStorageNode:
-				if len(node.GetFileName()) > len(inputStorageNodes.GetFileName()):
-					# conditional assignment if it is a windows or linux path
-					inputDirectory = node.GetFileName().rsplit("\\", 1)[0] if os.name == 'nt' else node.GetFileName().rsplit("/", 1)[0]
-					#outputPath = node.GetFileName().rsplit(".", 1)[0] + "_mesh.obj"
-	else:
-		#outputPath = inputStorageNode.GetFileName().rsplit(".", 1)[0] + "_mesh.obj"
-		inputDirectory = inputStorageNode.GetFileName().rsplit("/", 1)[0] if os.name == 'nt' else inputStorageNode.GetFileName().rsplit("\\", 1)[0]
+	# Get input directory
+	inputDirectory = get_data_directory(inputLabelMap, debug)
 
-	# Read the log file for information about the rototranslation. For this, get all the .log files in the directory inputDirectory
-	logFiles = []
-	logFile = None
-	for file in os.listdir(inputDirectory):
-		if file.endswith(".log"):
-			logFiles.append(file)
-	# open the first log file
-	if len(logFiles) == 0:
-		logging.warning("No log file found in the directory. The mesh will not be roto-translated.")
-	else:
-		logging.info(f"Opening log file {logFiles[0]}")
-		logFile = open(logFiles[0], "r")
-		log_kwargs = get_info_from_log(logFile)
-		logFile.close()
-		print(log_kwargs)
+	# get the log file information
+	log_kwargs = get_scan_info(inputDirectory)
 
 	# Roto-translate the mesh
 	if log_kwargs is not None:
 		pass
 
-	if log_kwargs is not None:
-		# put the mesh into the output mesh
-		timings["SetMeshAndSave"] = -time.time()
-		outputMesh.SetAndObservePolyData(mesh)
-		outputPath = os.path.join(inputDirectory, outputMesh.GetName() + ".obj")
-		outputMesh.GetStorageNode().SetFileName(outputPath)
-		outputMesh.GetStorageNode().WriteData(outputMesh)
-		timings["SetMeshAndSave"] += time.time()
+	# put the mesh into the output mesh
+	timings["SetMeshAndSave"] = -time.time()
+	outputMesh.AddDefaultStorageNode()
+	outputMesh.SetAndObservePolyData(mesh)
+	outputPath = os.path.join(inputDirectory, outputMesh.GetName() + ".obj")
+	outputMesh.GetStorageNode().SetFileName(outputPath)
+	outputMesh.GetStorageNode().WriteData(outputMesh)
+	print(f"Mesh saved to {outputPath}")
+	timings["SetMeshAndSave"] += time.time()
 
 	timings["Total"] += time.time()
 

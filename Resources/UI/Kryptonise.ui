@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>SegmentStone</class>
- <widget class="qMRMLWidget" name="SegmentStone">
+ <class>Kryptonise</class>
+ <widget class="qMRMLWidget" name="Kryptonise">
   <property name="enabled">
    <bool>true</bool>
   </property>
@@ -599,7 +599,7 @@
  <resources/>
  <connections>
   <connection>
-   <sender>SegmentStone</sender>
+   <sender>Kryptonise</sender>
    <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
    <receiver>inputSelector</receiver>
    <slot>setMRMLScene(vtkMRMLScene*)</slot>
@@ -615,7 +615,7 @@
    </hints>
   </connection>
   <connection>
-   <sender>SegmentStone</sender>
+   <sender>Kryptonise</sender>
    <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
    <receiver>outputSelector</receiver>
    <slot>setMRMLScene(vtkMRMLScene*)</slot>
