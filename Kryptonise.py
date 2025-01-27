@@ -332,6 +332,13 @@ class KryptoniseLogic(ScriptedLoadableModuleLogic):
 				inputLabelMap: vtkMRMLSegmentationNode,
 				outputMesh: vtkMRMLModelNode,
 				debug_level: int = 0,
+				target_vertex_count: int = 1e5,
+				roll: float = 0,
+				pitch: float = 0,
+				yaw: float = 0,
+				transl_x: float = 0,
+				transl_y: float = 0,
+				transl_z: float = 0,
 				) -> None:
 		"""
 		Run the processing algorithm.
@@ -354,6 +361,13 @@ class KryptoniseLogic(ScriptedLoadableModuleLogic):
 			"inputLabelMap": inputLabelMap.GetID(),
 			"outputMesh": outputMesh.GetID(),
 			"debug_level": int(debug_level),
+			"target_vertex_count": int(target_vertex_count),
+			"roll": float(roll),
+			"pitch": float(pitch),
+			"yaw": float(yaw),
+			"transl_x": float(transl_x),
+			"transl_y": float(transl_y),
+			"transl_z": float(transl_z),
 		}
 		#print(f"cliParams: {cliParams}")
 
@@ -502,6 +516,7 @@ def get_data_directory( inputLabelMap, debug ):
 				logging.info(f"Input storage node found: {inputDirectory}") if debug.value > 0 else None
 		else:
 			inputDirectory = os.path.dirname(inputStorageNode.GetFileName())
+		return inputDirectory
 
 def get_info_from_log(logFile):
 	# This method reads the log file and extracts the roto-translation information
@@ -542,6 +557,44 @@ def get_scan_info(inputDirectory):
 		return log_kwargs
 
 
+def Rot_x(angle):
+	# Rotation matrix around x
+	return np.array([[1, 0, 0],
+					 [0, np.cos(angle), -np.sin(angle)],
+					 [0, np.sin(angle), np.cos(angle)]])
+
+
+def Rot_y(angle):
+	# Rotation matrix around y
+	return np.array([[np.cos(angle), 0, np.sin(angle)],
+					 [0, 1, 0],
+					 [-np.sin(angle), 0, np.cos(angle)]])
+
+def Rot_z(angle):
+	# Rotation matrix around z
+	return np.array([[np.cos(angle), -np.sin(angle), 0],
+					 [np.sin(angle), np.cos(angle), 0],
+					 [0, 0, 1]])
+
+def Rototranslate(mesh, angle_x, angle_y, angle_z, transl_x, transl_y, transl_z):
+	# Rotate the mesh by the angles and translate it
+	rot_z = Rot_z(angle_z) # alpha
+	rot_y = Rot_y(angle_y) # beta
+	rot_x = Rot_x(angle_x) # gamma
+	rot = np.dot(rot_z, np.dot(rot_y, rot_x))
+	rototranslation = np.zeros((4,4))
+	rototranslation[:3,:3] = rot
+	rototranslation[:3,3] = [transl_x, transl_y, transl_z]
+	rototranslation[3,3] = 1
+
+	# Apply the transformation to the mesh
+	transform = vtk.vtkTransform()
+	transform.SetMatrix(rototranslation.ravel())
+	transformFilter = vtk.vtkTransformPolyDataFilter()
+	transformFilter.SetInputData(mesh)
+	transformFilter.SetTransform(transform)
+	transformFilter.Update()
+	return transformFilter.GetOutput()
 
 
 def process_kernel(**kwargs):
@@ -549,9 +602,9 @@ def process_kernel(**kwargs):
 	inputLabelMap = slicer.mrmlScene.GetNodeByID(kwargs['inputLabelMap'])
 	outputMesh = slicer.mrmlScene.GetNodeByID(kwargs['outputMesh'])
 
-	
+	target_vertex_count = kwargs['target_vertex_count']
+	rot_trans_kwargs = { 'angle_x': kwargs['roll'], 'angle_y': kwargs['pitch'], 'angle_z': kwargs['yaw'], 'transl_x': kwargs['transl_x'], 'transl_y': kwargs['transl_y'], 'transl_z': kwargs['transl_z'] }
 
-	target_vertex_count = 1e5
 
 
 
@@ -600,12 +653,14 @@ def process_kernel(**kwargs):
 
 	# Roto-translate the mesh
 	if log_kwargs is not None:
-		pass
+		timings["Rototranslate"] = -time.time()
+		mesh = Rototranslate(mesh, **rot_trans_kwargs)
 
 	# put the mesh into the output mesh
 	timings["SetMeshAndSave"] = -time.time()
 	outputMesh.AddDefaultStorageNode()
 	outputMesh.SetAndObservePolyData(mesh)
+	print(f'Directory: {inputDirectory}')
 	outputPath = os.path.join(inputDirectory, outputMesh.GetName() + ".obj")
 	outputMesh.GetStorageNode().SetFileName(outputPath)
 	outputMesh.GetStorageNode().WriteData(outputMesh)
