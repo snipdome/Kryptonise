@@ -555,8 +555,11 @@ def process_kernel(**kwargs):
 		# open all the other nodes and get the paths of them. The longest one will be the output path
 		for node in slicer.mrmlScene.GetNodesByClass("vtkMRMLStorageNode"):
 			inputStorageNodes = []
-			if node.GetStorageNode() is not None:
-				inputStorageNodes.append(node.GetStorageNode())
+			try:
+				if node.GetStorageNode():
+					inputStorageNodes.append(node.GetStorageNode())
+			except:
+				pass
 		if len(inputStorageNodes) == 0:
 			# set the path to the desktop on windows or home on linux
 			inputDirectory = str( os.path.join(os.path.expanduser('~'), 'Desktop') ) if os.name == 'nt' else str( os.path.expanduser('~') )
