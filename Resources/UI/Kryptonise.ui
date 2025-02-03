@@ -22,6 +22,9 @@
      <layout class="QFormLayout" name="formLayout_2">
       <item row="0" column="0">
        <widget class="QLabel" name="inputLabel">
+        <property name="toolTip">
+         <string>Pick the input labelmap, from which the mesh will be extracted.</string>
+        </property>
         <property name="text">
          <string>Input label map:</string>
         </property>
@@ -30,7 +33,7 @@
       <item row="0" column="1">
        <widget class="qMRMLNodeComboBox" name="inputSelector" native="true">
         <property name="toolTip">
-         <string>Pick the input to the algorithm.</string>
+         <string>Pick the input labelmap, from which the mesh will be extracted.</string>
         </property>
         <property name="nodeTypes" stdset="0">
          <stringlist notr="true">
@@ -47,7 +50,7 @@
          <bool>false</bool>
         </property>
         <property name="SlicerParameterName" stdset="0">
-         <string>inputVolume</string>
+         <string>inputLabelMap</string>
         </property>
        </widget>
       </item>
@@ -62,6 +65,9 @@
      <layout class="QFormLayout" name="formLayout_4">
       <item row="0" column="0">
        <widget class="QLabel" name="outputLabel">
+        <property name="toolTip">
+         <string>Select the output mesh node.</string>
+        </property>
         <property name="text">
          <string>Output mesh:</string>
         </property>
@@ -70,7 +76,7 @@
       <item row="0" column="1">
        <widget class="qMRMLNodeComboBox" name="outputSelector" native="true">
         <property name="toolTip">
-         <string>Pick the output to the algorithm.</string>
+         <string>Select the output mesh node.</string>
         </property>
         <property name="nodeTypes" stdset="0">
          <stringlist notr="true">
@@ -90,7 +96,7 @@
          <bool>true</bool>
         </property>
         <property name="SlicerParameterName" stdset="0">
-         <string>outputLabelMap</string>
+         <string>outputMesh</string>
         </property>
        </widget>
       </item>
@@ -102,6 +108,12 @@
      <property name="enabled">
       <bool>true</bool>
      </property>
+     <property name="maximumSize">
+      <size>
+       <width>16777215</width>
+       <height>306</height>
+      </size>
+     </property>
      <property name="text" stdset="0">
       <string>Parameters</string>
      </property>
@@ -111,27 +123,27 @@
      <property name="collapsed" stdset="0">
       <bool>false</bool>
      </property>
-     <layout class="QFormLayout" name="formLayout_5">
-      <item row="1" column="0">
-       <widget class="QLabel" name="scaleLabel">
+     <layout class="QFormLayout" name="formLayout_3">
+      <item row="0" column="0">
+       <widget class="QLabel" name="targetVertexCountLabel">
         <property name="enabled">
          <bool>true</bool>
         </property>
         <property name="toolTip">
-         <string>Set the scale factor. A factor of 2 means that the segmentation algorithm will be executed first on a downsampled volume by a factor of 2.</string>
+         <string>Select the desired number of vertices of the output mesh.</string>
         </property>
         <property name="text">
          <string>Target vertex count</string>
         </property>
        </widget>
       </item>
-      <item row="1" column="1">
-       <widget class="ctkSliderWidget" name="scaleSliderWidget" native="true">
+      <item row="0" column="1">
+       <widget class="ctkSliderWidget" name="targetVertexCountSliderWidget" native="true">
         <property name="enabled">
          <bool>true</bool>
         </property>
         <property name="toolTip">
-         <string>Set the scale factor. A factor of 2 means that the segmentation algorithm will be executed first on a downsampled volume by a factor of 2.</string>
+         <string>Select the desired number of vertices of the output mesh.</string>
         </property>
         <property name="decimals" stdset="0">
          <number>0</number>
@@ -140,51 +152,124 @@
          <double>1.000000000000000</double>
         </property>
         <property name="pageStep" stdset="0">
-         <double>2.000000000000000</double>
+         <double>10000.000000000000000</double>
         </property>
         <property name="minimum" stdset="0">
-         <double>1.000000000000000</double>
+         <double>1000.000000000000000</double>
         </property>
         <property name="maximum" stdset="0">
-         <double>5.000000000000000</double>
+         <double>1000000.000000000000000</double>
         </property>
         <property name="value" stdset="0">
-         <double>2.000000000000000</double>
+         <double>100000.000000000000000</double>
         </property>
        </widget>
       </item>
-      <item row="5" column="0" colspan="2">
-       <widget class="QGroupBox" name="curvatureFlowGroupBox">
+      <item row="2" column="0">
+       <widget class="QLabel" name="debugLevelLabel">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="toolTip">
+         <string>Select the desired number of vertices of the output mesh.</string>
+        </property>
+        <property name="text">
+         <string>Debug Level</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="ctkSliderWidget" name="debugLevelSliderWidget" native="true">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="toolTip">
+         <string>Select the desired number of vertices of the output mesh.</string>
+        </property>
+        <property name="decimals" stdset="0">
+         <number>0</number>
+        </property>
+        <property name="singleStep" stdset="0">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="pageStep" stdset="0">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="minimum" stdset="0">
+         <double>0.000000000000000</double>
+        </property>
+        <property name="maximum" stdset="0">
+         <double>3.000000000000000</double>
+        </property>
+        <property name="value" stdset="0">
+         <double>0.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0" colspan="2">
+       <widget class="QGroupBox" name="RotoTranslationGroupBox">
         <property name="enabled">
          <bool>true</bool>
         </property>
         <property name="title">
          <string>Roto-translation</string>
         </property>
-        <layout class="QGridLayout" name="gridLayout">
+        <layout class="QFormLayout" name="formLayout">
          <item row="0" column="0">
-          <widget class="QLabel" name="iterationsCVLabel">
+          <widget class="QLabel" name="rollLabel">
            <property name="text">
-            <string>Alpha</string>
+            <string>Roll</string>
            </property>
           </widget>
          </item>
          <item row="0" column="1">
-          <widget class="ctkSliderWidget" name="iterationsCVSliderWidget" native="true">
+          <widget class="ctkSliderWidget" name="rollSliderWidget" native="true">
            <property name="toolTip">
             <string>Set threshold value for computing the output image. Voxels that have intensities lower than this value will set to zero.</string>
            </property>
            <property name="decimals" stdset="0">
-            <number>0</number>
+            <number>3</number>
            </property>
            <property name="singleStep" stdset="0">
-            <double>0.001000000000000</double>
-           </property>
-           <property name="pageStep" stdset="0">
             <double>1.000000000000000</double>
            </property>
+           <property name="pageStep" stdset="0">
+            <double>10.000000000000000</double>
+           </property>
            <property name="minimum" stdset="0">
-            <double>0.000000000000000</double>
+            <double>-180.000000000000000</double>
+           </property>
+           <property name="maximum" stdset="0">
+            <double>180.000000000000000</double>
+           </property>
+           <property name="value" stdset="0">
+            <double>-90.000000000000000</double>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="pitchLabel">
+           <property name="text">
+            <string>Pitch</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="ctkSliderWidget" name="pitchSliderWidget" native="true">
+           <property name="toolTip">
+            <string>Set threshold value for computing the output image. Voxels that have intensities lower than this value will set to zero.</string>
+           </property>
+           <property name="decimals" stdset="0">
+            <number>3</number>
+           </property>
+           <property name="singleStep" stdset="0">
+            <double>1.000000000000000</double>
+           </property>
+           <property name="pageStep" stdset="0">
+            <double>10.000000000000000</double>
+           </property>
+           <property name="minimum" stdset="0">
+            <double>-90.000000000000000</double>
            </property>
            <property name="maximum" stdset="0">
             <double>90.000000000000000</double>
@@ -194,67 +279,134 @@
            </property>
           </widget>
          </item>
-         <item row="1" column="0">
-          <widget class="QLabel" name="stepSizeCVLabel">
-           <property name="text">
-            <string>Beta</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="1">
-          <widget class="ctkSliderWidget" name="stepSizeCVSliderWidget" native="true">
-           <property name="toolTip">
-            <string>Set threshold value for computing the output image. Voxels that have intensities lower than this value will set to zero.</string>
-           </property>
-           <property name="decimals" stdset="0">
-            <number>6</number>
-           </property>
-           <property name="singleStep" stdset="0">
-            <double>0.000001000000000</double>
-           </property>
-           <property name="pageStep" stdset="0">
-            <double>2.000000000000000</double>
-           </property>
-           <property name="minimum" stdset="0">
-            <double>0.000001000000000</double>
-           </property>
-           <property name="maximum" stdset="0">
-            <double>0.010000000000000</double>
-           </property>
-           <property name="value" stdset="0">
-            <double>0.000010000000000</double>
-           </property>
-          </widget>
-         </item>
          <item row="2" column="0">
-          <widget class="QLabel" name="stepSizeCVLabel_2">
+          <widget class="QLabel" name="yawLabel">
            <property name="text">
-            <string>Gamma</string>
+            <string>Yaw</string>
            </property>
           </widget>
          </item>
          <item row="2" column="1">
-          <widget class="ctkSliderWidget" name="stepSizeCVSliderWidget_2" native="true">
+          <widget class="ctkSliderWidget" name="yawSliderWidget" native="true">
            <property name="toolTip">
             <string>Set threshold value for computing the output image. Voxels that have intensities lower than this value will set to zero.</string>
            </property>
            <property name="decimals" stdset="0">
-            <number>6</number>
+            <number>3</number>
            </property>
            <property name="singleStep" stdset="0">
-            <double>0.000001000000000</double>
+            <double>1.000000000000000</double>
            </property>
            <property name="pageStep" stdset="0">
-            <double>2.000000000000000</double>
+            <double>10.000000000000000</double>
            </property>
            <property name="minimum" stdset="0">
-            <double>0.000001000000000</double>
+            <double>-180.000000000000000</double>
            </property>
            <property name="maximum" stdset="0">
-            <double>0.010000000000000</double>
+            <double>180.000000000000000</double>
            </property>
            <property name="value" stdset="0">
-            <double>0.000010000000000</double>
+            <double>0.000000000000000</double>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="xLabel">
+           <property name="text">
+            <string>x</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="1">
+          <widget class="ctkSliderWidget" name="xSliderWidget" native="true">
+           <property name="enabled">
+            <bool>true</bool>
+           </property>
+           <property name="toolTip">
+            <string>Set threshold value for computing the output image. Voxels that have intensities lower than this value will set to zero.</string>
+           </property>
+           <property name="decimals" stdset="0">
+            <number>3</number>
+           </property>
+           <property name="singleStep" stdset="0">
+            <double>0.001000000000000</double>
+           </property>
+           <property name="pageStep" stdset="0">
+            <double>1.000000000000000</double>
+           </property>
+           <property name="minimum" stdset="0">
+            <double>-1000.000000000000000</double>
+           </property>
+           <property name="maximum" stdset="0">
+            <double>1000.000000000000000</double>
+           </property>
+           <property name="value" stdset="0">
+            <double>0.000000000000000</double>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="0">
+          <widget class="QLabel" name="yLabel">
+           <property name="text">
+            <string>y</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="1">
+          <widget class="ctkSliderWidget" name="ySliderWidget" native="true">
+           <property name="toolTip">
+            <string>Set threshold value for computing the output image. Voxels that have intensities lower than this value will set to zero.</string>
+           </property>
+           <property name="decimals" stdset="0">
+            <number>3</number>
+           </property>
+           <property name="singleStep" stdset="0">
+            <double>0.001000000000000</double>
+           </property>
+           <property name="pageStep" stdset="0">
+            <double>1.000000000000000</double>
+           </property>
+           <property name="minimum" stdset="0">
+            <double>-1000.000000000000000</double>
+           </property>
+           <property name="maximum" stdset="0">
+            <double>1000.000000000000000</double>
+           </property>
+           <property name="value" stdset="0">
+            <double>0.000000000000000</double>
+           </property>
+          </widget>
+         </item>
+         <item row="5" column="0">
+          <widget class="QLabel" name="zLabel">
+           <property name="text">
+            <string>z</string>
+           </property>
+          </widget>
+         </item>
+         <item row="5" column="1">
+          <widget class="ctkSliderWidget" name="zSliderWidget" native="true">
+           <property name="toolTip">
+            <string>Set threshold value for computing the output image. Voxels that have intensities lower than this value will set to zero.</string>
+           </property>
+           <property name="decimals" stdset="0">
+            <number>3</number>
+           </property>
+           <property name="singleStep" stdset="0">
+            <double>0.001000000000000</double>
+           </property>
+           <property name="pageStep" stdset="0">
+            <double>1.000000000000000</double>
+           </property>
+           <property name="minimum" stdset="0">
+            <double>-1000.000000000000000</double>
+           </property>
+           <property name="maximum" stdset="0">
+            <double>1000.000000000000000</double>
+           </property>
+           <property name="value" stdset="0">
+            <double>31.910000000000000</double>
            </property>
           </widget>
          </item>
@@ -292,9 +444,10 @@
    </item>
   </layout>
   <zorder>outputsCollapsibleButton</zorder>
-  <zorder>applyButton</zorder>
   <zorder>parametersCollapsibleButton</zorder>
   <zorder>inputsCollapsibleButton</zorder>
+  <zorder>applyButton</zorder>
+  <zorder>verticalSpacer</zorder>
  </widget>
  <customwidgets>
   <customwidget>
