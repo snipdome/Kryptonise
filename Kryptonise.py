@@ -480,15 +480,15 @@ def checkInputs(**kwargs):
 # 		#print(f"{segmentName} volume = {volume_mm3} mm3")
 # 		logging.info(f"This stone has {volume_mm3*0.01757625:.2f} Ct\n\n")
 		
-def decimate_mesh(mesh, **kwargs):
+def decimate_mesh(mesh, debug, **kwargs):
 
 	decimate = vtk.vtkDecimatePro()
 	decimate.SetInputData(mesh)
 	decimate.SetTargetReduction(kwargs['target_reduction']) if 'target_reduction' in kwargs else None
 	decimate.PreserveTopologyOn()
-	print(f"Decimating mesh with target reduction {kwargs['target_reduction']}. Starting with {mesh.GetNumberOfPoints()} points")
+	logging.info(f"Decimating mesh with target reduction {kwargs['target_reduction']}. Starting with {mesh.GetNumberOfPoints()} points") if debug.value > DebugLevel.NO_VERBOSE.value else None
 	decimate.Update()
-	print(f"Decimated mesh has {decimate.GetOutput().GetNumberOfPoints()} points")
+	logging.info(f"Decimated mesh has {decimate.GetOutput().GetNumberOfPoints()} points") if debug.value > DebugLevel.NO_VERBOSE.value else None
 	return decimate.GetOutput()
 
 def select_biggest_connected_component(mesh, **kwargs):
@@ -692,7 +692,7 @@ def process_kernel(**kwargs):
 	timings["DecimateMesh"] = -time.time()
 	decimate_kwargs = {}
 	decimate_kwargs['target_reduction'] = (1 - target_vertex_count / mesh.GetNumberOfPoints()) if mesh.GetNumberOfPoints() > target_vertex_count else 0
-	mesh = decimate_mesh(mesh, **decimate_kwargs)
+	mesh = decimate_mesh(mesh, debug, **decimate_kwargs)
 	timings["DecimateMesh"] += time.time()
 
 	# Get input directory
