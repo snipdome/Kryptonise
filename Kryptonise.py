@@ -610,17 +610,26 @@ def CorrectMeshPosition(mesh, scanning_pos, proj_start, vox_size, pixel_size, nu
 
 	roto_translation = np.eye(4, dtype=np.float32)
 
-	magic_number = num_of_files # Probably from the number of slices in the total scan
+	magic_number = 784 # Probably from the number of slices in the total scan
 	#voxel_scaling = pixel_size/vox_size
-	h = 0.001 * vox_size * magic_number # vox_size is in um, the rest is in mm
+	h = 0.001 * vox_size * magic_number - 0.001 * 20 * magic_number
 	roto_translation[:3,3] += np.array([0, 0, -h], dtype=np.float32)
 
-	shape = np.array([-n_width, n_height, 0], dtype=np.float32) # Possibly inverted because of the image coordinate system
+	shape = np.array([n_width, -n_height, 0], dtype=np.float32) # Possibly inverted because of the image coordinate system
 	roto_translation[:3,3] += 0.001*vox_size * shape / 2 # vox_size is in um, the rest is in mm
 
 	roto_translation[:3,3] += np.array([0, 0, scanning_pos], dtype=np.float32)
 
-	roto_translation[:3,3] *= -1 # Invert the translation to have the mesh in the center
+	#roto_translation[:3,3] *= -1 # Invert the translation to have the mesh in the center
+
+	# print translation
+	#logging.warning(f"translation: {roto_translation[:3,3]}")
+	#logging.warning(f"scanning position: {scanning_pos}")
+	#logging.warning(f"h = {h}")
+
+	# print mesh center point
+	mesh_np = numpy_support.vtk_to_numpy(mesh.GetPoints().GetData())
+	#logging.warning(f"center point: {np.mean(mesh_np, axis=0)}")
 
 	# Apply the transformation to the mesh
 	transform = vtk.vtkTransform()
@@ -629,6 +638,13 @@ def CorrectMeshPosition(mesh, scanning_pos, proj_start, vox_size, pixel_size, nu
 	transformFilter.SetInputData(mesh)
 	transformFilter.SetTransform(transform)
 	transformFilter.Update()
+	#return transformFilter.GetOutput()
+	#logging.warning(f"lowest point: {np.min(transformFilter.GetOutput().GetPoints().GetData().GetArray(2))}")
+	#return transformFilter.GetOutput()
+
+	# print mesh center point
+	mesh_np = numpy_support.vtk_to_numpy(transformFilter.GetOutput().GetPoints().GetData())
+	#logging.warning(f"center point: {np.mean(mesh_np, axis=0)}")
 	return transformFilter.GetOutput()
 
 
@@ -726,7 +742,7 @@ def process_kernel(**kwargs):
 	outputMesh.AddDefaultStorageNode()
 	if log_kwargs is not None:
 		outputMesh.SetAndObservePolyData(mesh_krypton)
-		outputPath = os.path.join(inputDirectory, outputMesh.GetName() +"_krypton" + ".obj")
+		outputPath = os.path.join(inputDirectory, outputMesh.GetName() +"_tomo" + ".obj")
 		outputMesh.GetStorageNode().SetFileName(outputPath)
 		outputMesh.GetStorageNode().WriteData(outputMesh)
 		logging.info(f"Krypton mesh saved to {outputPath}")
