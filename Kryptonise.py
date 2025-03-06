@@ -740,14 +740,15 @@ def process_kernel(**kwargs):
 	# put the mesh into the output mesh
 	timings["SetMeshAndSave"] = -time.time()
 	outputMesh.AddDefaultStorageNode()
+	export_mesh_name = outputMesh.GetName() + '_' + str(target_vertex_count//1000) + 'k'
 	if log_kwargs is not None:
 		outputMesh.SetAndObservePolyData(mesh_krypton)
-		outputPath = os.path.join(inputDirectory, outputMesh.GetName() +"_tomo" + ".obj")
+		outputPath = os.path.join(inputDirectory, export_mesh_name + ".obj")
 		outputMesh.GetStorageNode().SetFileName(outputPath)
 		outputMesh.GetStorageNode().WriteData(outputMesh)
 		logging.info(f"Krypton mesh saved to {outputPath}")
 	outputMesh.SetAndObservePolyData(mesh)
-	outputPath = os.path.join(inputDirectory, outputMesh.GetName() + ".obj")
+	outputPath = os.path.join(inputDirectory, export_mesh_name + '_tomo' + ".obj")
 	outputMesh.GetStorageNode().SetFileName(outputPath)
 	outputMesh.GetStorageNode().WriteData(outputMesh)
 	logging.info(f"Mesh saved to {outputPath}")
