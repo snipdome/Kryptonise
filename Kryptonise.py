@@ -564,10 +564,18 @@ def get_info_from_log(logFile, debug):
 def get_scan_info(inputDirectory, debug):
 		# Read the log file for information about the rototranslation. For this, get all the .log files in the directory inputDirectory
 		
+		logging.warning(" Input directory: " + inputDirectory)
 		logFiles = []
 		for file in os.listdir(inputDirectory):
 			if file.endswith(".log"):
 				logFiles.append(os.path.join(inputDirectory, file))
+		if len(logFiles)==0:
+			# Try to open the folder above
+			new_inputDirectory = os.path.dirname(inputDirectory)
+			for file in os.listdir(new_inputDirectory):
+				if file.endswith(".log"):
+					logFiles.append(os.path.join(new_inputDirectory, file))
+
 		log_kwargs = None
 		
 		if len(logFiles) == 0: # open the first log file
