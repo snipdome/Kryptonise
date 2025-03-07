@@ -15,8 +15,7 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
  
 import logging
-import os
-import copy
+import os, copy
 from typing import Annotated, Optional
 
 import vtk
@@ -160,6 +159,7 @@ class KryptoniseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 		self.logic = None
 		self._parameterNode = None
 		self._parameterNodeGuiTag = None
+		self.scanners = {}
 
 	def setup(self) -> None:
 		"""Called when the user opens the module the first time and the widget is initialized."""
@@ -170,6 +170,16 @@ class KryptoniseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 		uiWidget = slicer.util.loadUI(self.resourcePath("UI/Kryptonise.ui"))
 		self.layout.addWidget(uiWidget)
 		self.ui = slicer.util.childWidgetVariables(uiWidget)
+
+		# Set up the combobox with the scanners, so that when the combobox is changed, the sliders x, y, z, roll, pitch, yaw are updated
+		self.ui.scannerComboBox.connect("currentIndexChanged(int)", self.onScannerComboBox)
+
+		# Set up the save button
+		self.ui.savePushButton.connect("clicked(bool)", self.onSavePushButton)
+
+		# Fill combobox with possible values, by reading all the uaml files in the Scanner directory and using the name of the file
+		# as the name of the scanner
+		self._update_scanner_parameters(init=True)
 
 		# hide the debug level slider
 		self.ui.debugLevelSliderWidget.hide()
@@ -195,6 +205,88 @@ class KryptoniseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
 		# Make sure parameter node is initialized (needed for module reload)
 		self.initializeParameterNode()
+
+	def _update_scanner_parameters(self, init=False):
+		# Fill combobox with possible values, by reading all the uaml files in the Scanner directory and using the name of the file
+		# as the name of the scanner
+		scanners = {}
+		for file in os.listdir(self.resourcePath("Scanners")):
+			if file.endswith(".yaml"):
+				# open the file and check if the file contains 6 numbers, representing roll, pitch, yaw and translation
+				with open(os.path.join(self.resourcePath("Scanners"), file), "r") as f:
+					# read data as if it was a yaml file
+					data = f.read().split("\n") # each line contains a key-value pair
+					data = {line.split(":")[0].strip(): float(line.split(":")[1].strip()) for line in data if len(line.split(":")) == 2}
+
+					try:
+						if len(data) != 6:
+							raise ValueError("The file does not contain 6 numbers")
+						scanners[file.split(".")[0]] = data
+					except:
+						logging.warning(f"File {file} does not contain 6 numbers or is not a valid yaml file")
+		if len(scanners) != 0:
+			# Clear the combobox
+			self.ui.scannerComboBox.clear()
+			# Add the scanners to the combobox
+			for scanner in scanners.keys():
+				self.ui.scannerComboBox.addItem(scanner)
+			if init:
+				self.ui.scannerComboBox.setCurrentIndex(0)
+		elif init:
+			logging.warning("No suitable scanner files found in the Scanner directory. One will be created.")
+			# create a default scanner
+			with open(os.path.join(self.resourcePath("Scanners"), "default.yaml"), "w") as f:
+				# fetch the default values from the sliders
+				values = {
+					'roll': self.ui.rollSliderWidget.value,
+					'pitch': self.ui.pitchSliderWidget.value,
+					'yaw': self.ui.yawSliderWidget.value,
+					'x': self.ui.xSliderWidget.value,
+					'y': self.ui.ySliderWidget.value,
+					'z': self.ui.zSliderWidget.value,
+				}
+				for key, value in values.items():
+					f.write(f"{key}: {value:.8f}\n")
+		self.scanners = scanners
+			
+
+	# when the combobox is changed, update the sliders
+	def onScannerComboBox(self, index):
+		if len(self.scanners) != 0:
+			# get the selected scanner
+			scanner = self.ui.scannerComboBox.currentText
+			# get the values of the scanner
+			values = self.scanners[scanner]
+			# update the sliders
+			self.ui.rollSliderWidget.value = values['roll']
+			self.ui.pitchSliderWidget.value = values['pitch']
+			self.ui.yawSliderWidget.value = values['yaw']
+			self.ui.xSliderWidget.value = values['x']
+			self.ui.ySliderWidget.value = values['y']
+			self.ui.zSliderWidget.value = values['z']
+
+	def onSavePushButton(self):
+		"""Save the parameters to the yaml file."""
+		# get the name of the scanner
+		scanner = self.ui.scannerComboBox.currentText
+		# get the values of the sliders
+		values = {
+			'roll': self.ui.rollSliderWidget.value,
+			'pitch': self.ui.pitchSliderWidget.value,
+			'yaw': self.ui.yawSliderWidget.value,
+			'x': self.ui.xSliderWidget.value,
+			'y': self.ui.ySliderWidget.value,
+			'z': self.ui.zSliderWidget.value,
+		}
+		# save the values to the yaml file
+		with open(os.path.join(self.resourcePath("Scanners"), scanner + ".yaml"), "w") as f:
+			for key, value in values.items():
+				f.write(f"{key}: {value:.8f}\n")
+		# update the scanner parameters
+		for key, value in values.items():
+			self.scanners[scanner][key] = value
+		
+
 
 	def cleanup(self) -> None:
 		"""Called when the application closes and the module widget is destroyed."""

@@ -9,7 +9,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>377</width>
+    <width>341</width>
     <height>766</height>
    </rect>
   </property>
@@ -165,64 +165,23 @@
         </property>
        </widget>
       </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="debugLevelLabel">
-        <property name="enabled">
-         <bool>true</bool>
-        </property>
-        <property name="toolTip">
-         <string>Select the desired number of vertices of the output mesh.</string>
-        </property>
-        <property name="text">
-         <string>Debug Level</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="1">
-       <widget class="ctkSliderWidget" name="debugLevelSliderWidget" native="true">
-        <property name="enabled">
-         <bool>true</bool>
-        </property>
-        <property name="toolTip">
-         <string>Select the desired number of vertices of the output mesh.</string>
-        </property>
-        <property name="decimals" stdset="0">
-         <number>0</number>
-        </property>
-        <property name="singleStep" stdset="0">
-         <double>1.000000000000000</double>
-        </property>
-        <property name="pageStep" stdset="0">
-         <double>1.000000000000000</double>
-        </property>
-        <property name="minimum" stdset="0">
-         <double>0.000000000000000</double>
-        </property>
-        <property name="maximum" stdset="0">
-         <double>3.000000000000000</double>
-        </property>
-        <property name="value" stdset="0">
-         <double>0.000000000000000</double>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0" colspan="2">
+      <item row="2" column="0" colspan="2">
        <widget class="QGroupBox" name="RotoTranslationGroupBox">
         <property name="enabled">
          <bool>true</bool>
         </property>
         <property name="title">
-         <string>Roto-translation</string>
+         <string>Roto-translation parameters</string>
         </property>
         <layout class="QFormLayout" name="formLayout">
-         <item row="0" column="0">
+         <item row="1" column="0">
           <widget class="QLabel" name="rollLabel">
            <property name="text">
             <string>Roll</string>
            </property>
           </widget>
          </item>
-         <item row="0" column="1">
+         <item row="1" column="1">
           <widget class="ctkSliderWidget" name="rollSliderWidget" native="true">
            <property name="toolTip">
             <string>Set threshold value for computing the output image. Voxels that have intensities lower than this value will set to zero.</string>
@@ -247,14 +206,14 @@
            </property>
           </widget>
          </item>
-         <item row="1" column="0">
+         <item row="2" column="0">
           <widget class="QLabel" name="pitchLabel">
            <property name="text">
             <string>Pitch</string>
            </property>
           </widget>
          </item>
-         <item row="1" column="1">
+         <item row="2" column="1">
           <widget class="ctkSliderWidget" name="pitchSliderWidget" native="true">
            <property name="toolTip">
             <string>Set threshold value for computing the output image. Voxels that have intensities lower than this value will set to zero.</string>
@@ -279,14 +238,14 @@
            </property>
           </widget>
          </item>
-         <item row="2" column="0">
+         <item row="3" column="0">
           <widget class="QLabel" name="yawLabel">
            <property name="text">
             <string>Yaw</string>
            </property>
           </widget>
          </item>
-         <item row="2" column="1">
+         <item row="3" column="1">
           <widget class="ctkSliderWidget" name="yawSliderWidget" native="true">
            <property name="toolTip">
             <string>Set threshold value for computing the output image. Voxels that have intensities lower than this value will set to zero.</string>
@@ -311,14 +270,14 @@
            </property>
           </widget>
          </item>
-         <item row="3" column="0">
+         <item row="4" column="0">
           <widget class="QLabel" name="xLabel">
            <property name="text">
             <string>x</string>
            </property>
           </widget>
          </item>
-         <item row="3" column="1">
+         <item row="4" column="1">
           <widget class="ctkSliderWidget" name="xSliderWidget" native="true">
            <property name="enabled">
             <bool>true</bool>
@@ -346,14 +305,14 @@
            </property>
           </widget>
          </item>
-         <item row="4" column="0">
+         <item row="5" column="0">
           <widget class="QLabel" name="yLabel">
            <property name="text">
             <string>y</string>
            </property>
           </widget>
          </item>
-         <item row="4" column="1">
+         <item row="5" column="1">
           <widget class="ctkSliderWidget" name="ySliderWidget" native="true">
            <property name="toolTip">
             <string>Set threshold value for computing the output image. Voxels that have intensities lower than this value will set to zero.</string>
@@ -378,14 +337,14 @@
            </property>
           </widget>
          </item>
-         <item row="5" column="0">
+         <item row="6" column="0">
           <widget class="QLabel" name="zLabel">
            <property name="text">
             <string>z</string>
            </property>
           </widget>
          </item>
-         <item row="5" column="1">
+         <item row="6" column="1">
           <widget class="ctkSliderWidget" name="zSliderWidget" native="true">
            <property name="toolTip">
             <string>Set threshold value for computing the output image. Voxels that have intensities lower than this value will set to zero.</string>
@@ -410,7 +369,71 @@
            </property>
           </widget>
          </item>
+         <item row="0" column="1">
+          <widget class="QComboBox" name="scannerComboBox">
+           <item>
+            <property name="text">
+             <string>default</string>
+            </property>
+           </item>
+          </widget>
+         </item>
+         <item row="0" column="0">
+          <widget class="QLabel" name="scannerLabel">
+           <property name="text">
+            <string>Scanner</string>
+           </property>
+          </widget>
+         </item>
+         <item row="7" column="0" colspan="2">
+          <widget class="QPushButton" name="savePushButton">
+           <property name="text">
+            <string>Save as new default</string>
+           </property>
+          </widget>
+         </item>
         </layout>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="debugLevelLabel">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="toolTip">
+         <string>Select the desired number of vertices of the output mesh.</string>
+        </property>
+        <property name="text">
+         <string>Debug Level</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="ctkSliderWidget" name="debugLevelSliderWidget" native="true">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="toolTip">
+         <string>Select the desired number of vertices of the output mesh.</string>
+        </property>
+        <property name="decimals" stdset="0">
+         <number>0</number>
+        </property>
+        <property name="singleStep" stdset="0">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="pageStep" stdset="0">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="minimum" stdset="0">
+         <double>0.000000000000000</double>
+        </property>
+        <property name="maximum" stdset="0">
+         <double>3.000000000000000</double>
+        </property>
+        <property name="value" stdset="0">
+         <double>0.000000000000000</double>
+        </property>
        </widget>
       </item>
      </layout>
