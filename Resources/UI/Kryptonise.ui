@@ -202,7 +202,7 @@
             <double>180.000000000000000</double>
            </property>
            <property name="value" stdset="0">
-            <double>-0.055268000000000</double>
+            <double>-0.104259000000000</double>
            </property>
           </widget>
          </item>
@@ -234,7 +234,7 @@
             <double>90.000000000000000</double>
            </property>
            <property name="value" stdset="0">
-            <double>0.026555000000000</double>
+            <double>-0.004796000000000</double>
            </property>
           </widget>
          </item>
@@ -266,7 +266,7 @@
             <double>180.000000000000000</double>
            </property>
            <property name="value" stdset="0">
-            <double>-83.063761000000000</double>
+            <double>-83.116591999999997</double>
            </property>
           </widget>
          </item>
@@ -286,7 +286,7 @@
             <string>Set threshold value for computing the output image. Voxels that have intensities lower than this value will set to zero.</string>
            </property>
            <property name="decimals" stdset="0">
-            <number>5</number>
+            <number>6</number>
            </property>
            <property name="singleStep" stdset="0">
             <double>0.001000000000000</double>
@@ -301,7 +301,7 @@
             <double>1000.000000000000000</double>
            </property>
            <property name="value" stdset="0">
-            <double>-0.080496000000000</double>
+            <double>-0.076056000000000</double>
            </property>
           </widget>
          </item>
@@ -318,7 +318,7 @@
             <string>Set threshold value for computing the output image. Voxels that have intensities lower than this value will set to zero.</string>
            </property>
            <property name="decimals" stdset="0">
-            <number>5</number>
+            <number>6</number>
            </property>
            <property name="singleStep" stdset="0">
             <double>0.001000000000000</double>
@@ -333,7 +333,7 @@
             <double>1000.000000000000000</double>
            </property>
            <property name="value" stdset="0">
-            <double>0.000005000000000</double>
+            <double>0.003198000000000</double>
            </property>
           </widget>
          </item>
@@ -350,7 +350,7 @@
             <string>Set threshold value for computing the output image. Voxels that have intensities lower than this value will set to zero.</string>
            </property>
            <property name="decimals" stdset="0">
-            <number>5</number>
+            <number>6</number>
            </property>
            <property name="singleStep" stdset="0">
             <double>0.001000000000000</double>
@@ -365,7 +365,7 @@
             <double>1000.000000000000000</double>
            </property>
            <property name="value" stdset="0">
-            <double>30.239567999999998</double>
+            <double>14.532973999999999</double>
            </property>
           </widget>
          </item>

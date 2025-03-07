@@ -704,7 +704,7 @@ def CorrectMeshPosition(mesh, scanning_pos, proj_start, vox_size, pixel_size, nu
 
 	magic_number = 784 # Probably from the number of slices in the total scan
 	#voxel_scaling = pixel_size/vox_size
-	h = 0.001 * vox_size * magic_number - 0.001 * 20 * magic_number
+	h = 0.001 * vox_size * magic_number #- 0.001 * 20 * magic_number
 	roto_translation[:3,3] += np.array([0, 0, -h], dtype=np.float32)
 
 	shape = np.array([n_width, -n_height, 0], dtype=np.float32) # Possibly inverted because of the image coordinate system
