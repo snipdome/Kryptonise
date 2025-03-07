@@ -15,7 +15,7 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
  
 import logging
-import os
+import os, copy
 from typing import Annotated, Optional
 
 import vtk
@@ -136,8 +136,8 @@ class KryptoniseParameterNode:
 	outputLabelMap - The output label map, where the segmented volume will be written.
 	"""
 
-	inputVolume: vtkMRMLScalarVolumeNode
-	outputLabelMap: vtkMRMLSegmentationNode
+	inputLabelMap: vtkMRMLSegmentationNode
+	outputMesh: vtkMRMLModelNode
 	#imageThreshold: Annotated[float, WithinRange(-100, 500)] = 100
 	
 
@@ -159,6 +159,7 @@ class KryptoniseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 		self.logic = None
 		self._parameterNode = None
 		self._parameterNodeGuiTag = None
+		self.scanners = {}
 
 	def setup(self) -> None:
 		"""Called when the user opens the module the first time and the widget is initialized."""
@@ -170,12 +171,19 @@ class KryptoniseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 		self.layout.addWidget(uiWidget)
 		self.ui = slicer.util.childWidgetVariables(uiWidget)
 
+		# Set up the combobox with the scanners, so that when the combobox is changed, the sliders x, y, z, roll, pitch, yaw are updated
+		self.ui.scannerComboBox.connect("currentIndexChanged(int)", self.onScannerComboBox)
+
+		# Set up the save button
+		self.ui.savePushButton.connect("clicked(bool)", self.onSavePushButton)
+
+		# Fill combobox with possible values, by reading all the uaml files in the Scanner directory and using the name of the file
+		# as the name of the scanner
+		self._update_scanner_parameters(init=True)
+
 		# hide the debug level slider
 		self.ui.debugLevelSliderWidget.hide()
 		self.ui.debugLevelLabel.hide()
-
-		# hide the curvature flow options
-		self.ui.curvatureFlowGroupBox.hide()
 
 		# Set scene in MRML widgets. Make sure that in Qt designer the top-level qMRMLWidget's
 		# "mrmlSceneChanged(vtkMRMLScene*)" signal in is connected to each MRML widget's.
@@ -197,6 +205,88 @@ class KryptoniseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
 		# Make sure parameter node is initialized (needed for module reload)
 		self.initializeParameterNode()
+
+	def _update_scanner_parameters(self, init=False):
+		# Fill combobox with possible values, by reading all the uaml files in the Scanner directory and using the name of the file
+		# as the name of the scanner
+		scanners = {}
+		for file in os.listdir(self.resourcePath("Scanners")):
+			if file.endswith(".yaml"):
+				# open the file and check if the file contains 6 numbers, representing roll, pitch, yaw and translation
+				with open(os.path.join(self.resourcePath("Scanners"), file), "r") as f:
+					# read data as if it was a yaml file
+					data = f.read().split("\n") # each line contains a key-value pair
+					data = {line.split(":")[0].strip(): float(line.split(":")[1].strip()) for line in data if len(line.split(":")) == 2}
+
+					try:
+						if len(data) != 6:
+							raise ValueError("The file does not contain 6 numbers")
+						scanners[file.split(".")[0]] = data
+					except:
+						logging.warning(f"File {file} does not contain 6 numbers or is not a valid yaml file")
+		if len(scanners) != 0:
+			# Clear the combobox
+			self.ui.scannerComboBox.clear()
+			# Add the scanners to the combobox
+			for scanner in scanners.keys():
+				self.ui.scannerComboBox.addItem(scanner)
+			if init:
+				self.ui.scannerComboBox.setCurrentIndex(0)
+		elif init:
+			logging.warning("No suitable scanner files found in the Scanner directory. One will be created.")
+			# create a default scanner
+			with open(os.path.join(self.resourcePath("Scanners"), "default.yaml"), "w") as f:
+				# fetch the default values from the sliders
+				values = {
+					'roll': self.ui.rollSliderWidget.value,
+					'pitch': self.ui.pitchSliderWidget.value,
+					'yaw': self.ui.yawSliderWidget.value,
+					'x': self.ui.xSliderWidget.value,
+					'y': self.ui.ySliderWidget.value,
+					'z': self.ui.zSliderWidget.value,
+				}
+				for key, value in values.items():
+					f.write(f"{key}: {value:.8f}\n")
+		self.scanners = scanners
+			
+
+	# when the combobox is changed, update the sliders
+	def onScannerComboBox(self, index):
+		if len(self.scanners) != 0:
+			# get the selected scanner
+			scanner = self.ui.scannerComboBox.currentText
+			# get the values of the scanner
+			values = self.scanners[scanner]
+			# update the sliders
+			self.ui.rollSliderWidget.value = values['roll']
+			self.ui.pitchSliderWidget.value = values['pitch']
+			self.ui.yawSliderWidget.value = values['yaw']
+			self.ui.xSliderWidget.value = values['x']
+			self.ui.ySliderWidget.value = values['y']
+			self.ui.zSliderWidget.value = values['z']
+
+	def onSavePushButton(self):
+		"""Save the parameters to the yaml file."""
+		# get the name of the scanner
+		scanner = self.ui.scannerComboBox.currentText
+		# get the values of the sliders
+		values = {
+			'roll': self.ui.rollSliderWidget.value,
+			'pitch': self.ui.pitchSliderWidget.value,
+			'yaw': self.ui.yawSliderWidget.value,
+			'x': self.ui.xSliderWidget.value,
+			'y': self.ui.ySliderWidget.value,
+			'z': self.ui.zSliderWidget.value,
+		}
+		# save the values to the yaml file
+		with open(os.path.join(self.resourcePath("Scanners"), scanner + ".yaml"), "w") as f:
+			for key, value in values.items():
+				f.write(f"{key}: {value:.8f}\n")
+		# update the scanner parameters
+		for key, value in values.items():
+			self.scanners[scanner][key] = value
+		
+
 
 	def cleanup(self) -> None:
 		"""Called when the application closes and the module widget is destroyed."""
@@ -234,22 +324,23 @@ class KryptoniseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 		self.setParameterNode(self.logic.getParameterNode())
 
 		# Select default input nodes if nothing is selected yet to save a few clicks for the user
-		if not self._parameterNode.inputVolume:
-			firstVolumeNode = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLScalarVolumeNode")
-			if firstVolumeNode:
-				self._parameterNode.inputVolume = firstVolumeNode
+		if not self._parameterNode.inputLabelMap:
+			firstLabelMapNode = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLSegmentationNode")
+			if firstLabelMapNode:
+				self._parameterNode.inputLabelMap = firstLabelMapNode
 		
-		self.try_update_output_labelmap()
+		self.try_update_output_mesh()
 		
-	def try_update_output_labelmap(self):
-		# Create a new segmentation node to store the output if there is none yet with the same name as the input volume
-		if not self._parameterNode.outputLabelMap and self._parameterNode.inputVolume:
-			input_name = self._parameterNode.inputVolume.GetName().split("_")[0] 
-			segmentationNode = slicer.util.getFirstNodeByClassByName("vtkMRMLSegmentationNode", input_name)
-			if not segmentationNode:
-				segmentationNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
-				segmentationNode.SetName(input_name)
-			self._parameterNode.outputLabelMap = segmentationNode
+	def try_update_output_mesh(self):
+		# Create a new mesh node to store the output if there is none yet with the same name as the input volume
+		#if not self._parameterNode.outputLabelMap and self._parameterNode.inputVolume:
+		if not self._parameterNode.outputMesh and self._parameterNode.inputLabelMap:
+			input_name = self._parameterNode.inputLabelMap.GetName()
+			meshNode = slicer.util.getFirstNodeByClassByName("vtkMRMLModelNode", input_name)
+			if not meshNode:
+				meshNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode")
+				meshNode.SetName(input_name)
+			self._parameterNode.outputMesh = meshNode
 
 
 	def setParameterNode(self, inputParameterNode: Optional[KryptoniseParameterNode]) -> None:
@@ -270,36 +361,45 @@ class KryptoniseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 			self._checkCanApply()
 
 	def _checkCanApply(self, caller=None, event=None) -> None:
-		self.try_update_output_labelmap()
-		if self._parameterNode and self._parameterNode.inputVolume and self._parameterNode.outputLabelMap:
-			self.ui.applyButton.toolTip = _("Compute segmentation")
+		self.try_update_output_mesh()
+		if self._parameterNode and self._parameterNode.inputLabelMap and self._parameterNode.outputMesh:
+			self.ui.applyButton.toolTip = _("Execute the mesh extraction, reduction and roto-translation")
 			self.ui.applyButton.enabled = True
 		else:
-			self.ui.applyButton.toolTip = _("Select input volume and output labelmap nodes")
+			self.ui.applyButton.toolTip = _("Select input label map and output mesh nodes")
 			self.ui.applyButton.enabled = False
 
 	def onApplyButton(self) -> None:
 
-		if self.ui.borderDilateSliderWidget.value <= self.ui.scaleSliderWidget.value:
-			self.ui.borderDilateSliderWidget.value = self.ui.scaleSliderWidget.value +1
-			logging.warning("Border dilate radius should be greater than the scale. Setting it to scale + 1")
+		# if self.ui.borderDilateSliderWidget.value <= self.ui.scaleSliderWidget.value:
+		# 	self.ui.borderDilateSliderWidget.value = self.ui.scaleSliderWidget.value +1
+		# 	logging.warning("Border dilate radius should be greater than the scale. Setting it to scale + 1")
+
 		"""Run processing when user clicks "Apply" button."""
 		with slicer.util.tryWithErrorDisplay(_("Failed to compute results."), waitCursor=True):
 			kwargs = {
-				"inputVolume": self.ui.inputSelector.currentNode(),
-				"outputLabelMap": self.ui.outputSelector.currentNode(),
+				"inputLabelMap": self._parameterNode.inputLabelMap,
+				"outputMesh": self._parameterNode.outputMesh,
 
-				"scale": self.ui.scaleSliderWidget.value,
-				"want_curvature_flow": self.ui.curvatureFlowCheckBox.checked,
-				"curvature_niter": self.ui.iterationsCVSliderWidget.value,
-				"curvature_timestep": self.ui.stepSizeCVSliderWidget.value,
+				"target_vertex_count": self.ui.targetVertexCountSliderWidget.value,
+				"roll": self.ui.rollSliderWidget.value,
+				"pitch": self.ui.pitchSliderWidget.value,
+				"yaw": self.ui.yawSliderWidget.value,
+				"transl_x": self.ui.xSliderWidget.value,
+				"transl_y": self.ui.ySliderWidget.value,
+				"transl_z": self.ui.zSliderWidget.value,
 
-				"top_stone_seed_perc": self.ui.topStoneHeightSliderWidget.value,
-				"bottom_stone_seed_perc": self.ui.bottomStoneHeightSliderWidget.value,
-				"border_dilate_radius": self.ui.borderDilateSliderWidget.value,
-				"border_erode_radius": self.ui.borderErosionSliderWidget.value,
-				"seed_radius": self.ui.seedRadiusSliderWidget.value,
-				"glue_h": self.ui.glueHeightSliderWidget.value,
+				# "scale": self.ui.scaleSliderWidget.value,
+				# "want_curvature_flow": self.ui.curvatureFlowCheckBox.checked,
+				# "curvature_niter": self.ui.iterationsCVSliderWidget.value,
+				# "curvature_timestep": self.ui.stepSizeCVSliderWidget.value,
+
+				# "top_stone_seed_perc": self.ui.topStoneHeightSliderWidget.value,
+				# "bottom_stone_seed_perc": self.ui.bottomStoneHeightSliderWidget.value,
+				# "border_dilate_radius": self.ui.borderDilateSliderWidget.value,
+				# "border_erode_radius": self.ui.borderErosionSliderWidget.value,
+				# "seed_radius": self.ui.seedRadiusSliderWidget.value,
+				# "glue_h": self.ui.glueHeightSliderWidget.value,
 				"debug_level": self.ui.debugLevelSliderWidget.value,
 			}
 
@@ -362,9 +462,9 @@ class KryptoniseLogic(ScriptedLoadableModuleLogic):
 			"outputMesh": outputMesh.GetID(),
 			"debug_level": int(debug_level),
 			"target_vertex_count": int(target_vertex_count),
-			"roll": float(roll),
-			"pitch": float(pitch),
-			"yaw": float(yaw),
+			"roll": float(roll*np.pi/180),
+			"pitch": float(pitch*np.pi/180),
+			"yaw": float(yaw*np.pi/180),
 			"transl_x": float(transl_x),
 			"transl_y": float(transl_y),
 			"transl_z": float(transl_z),
@@ -472,15 +572,15 @@ def checkInputs(**kwargs):
 # 		#print(f"{segmentName} volume = {volume_mm3} mm3")
 # 		logging.info(f"This stone has {volume_mm3*0.01757625:.2f} Ct\n\n")
 		
-def decimate_mesh(mesh, **kwargs):
+def decimate_mesh(mesh, debug, **kwargs):
 
 	decimate = vtk.vtkDecimatePro()
 	decimate.SetInputData(mesh)
 	decimate.SetTargetReduction(kwargs['target_reduction']) if 'target_reduction' in kwargs else None
 	decimate.PreserveTopologyOn()
-	print(f"Decimating mesh with target reduction {kwargs['target_reduction']}. Starting with {mesh.GetNumberOfPoints()} points")
+	logging.info(f"Decimating mesh with target reduction {kwargs['target_reduction']}. Starting with {mesh.GetNumberOfPoints()} points") if debug.value > DebugLevel.NO_VERBOSE.value else None
 	decimate.Update()
-	print(f"Decimated mesh has {decimate.GetOutput().GetNumberOfPoints()} points")
+	logging.info(f"Decimated mesh has {decimate.GetOutput().GetNumberOfPoints()} points") if debug.value > DebugLevel.NO_VERBOSE.value else None
 	return decimate.GetOutput()
 
 def select_biggest_connected_component(mesh, **kwargs):
@@ -518,7 +618,7 @@ def get_data_directory( inputLabelMap, debug ):
 			inputDirectory = os.path.dirname(inputStorageNode.GetFileName())
 		return inputDirectory
 
-def get_info_from_log(logFile):
+def get_info_from_log(logFile, debug):
 	# This method reads the log file and extracts the roto-translation information
 	#
 	# Useful information: 
@@ -528,24 +628,46 @@ def get_info_from_log(logFile):
 	log_kwargs = {
 		'scanning_pos': 'Scanning position',
 		'proj_start': 'First Section',
-		'vox_size': 'Image Pixel Size (um)',
+		'vox_size': 'Scaled Image Pixel Size (um)',
+		'num_of_files': 'Number Of Files',
+		'pixel_size': 'Camera Pixel Size (um)',
+		'n_width': 'Result Image Width (pixels)',
+		'n_height': 'Result Image Height (pixels)',
 	}
+	out_kwargs = copy.deepcopy(log_kwargs)
 	for line in logFile:
 		for key, value in log_kwargs.items():
-			if value in line:
-				log_kwargs[key] = line.split("=")[1].split(" ")[0].strip('\n')	
+			# Check if the key is in the line, escaping spaces
+			if line[0:len(value)] == value:
+				#print(f"Found {value} in line {line}")
+				new_value = line.split("=")[1].strip('\n')
+				#print(f'New value: {new_value}') if debug.value > 0 else None
+				while new_value.startswith(" "): # Strip the initial space, if present
+					new_value = new_value[1:]
+				#print(f'New value: {new_value}') if debug.value > 0 else None
+				out_kwargs[key] = new_value.split(" ")[0]
+				#print(f"Found {value} in line {line}. Extracted value: {out_kwargs[key]}") if debug.value > 0 else None
 
-	for key, value in log_kwargs.items():
-		log_kwargs[key] = float(value)
-	return log_kwargs
+	logging.info(f"Log file information: {out_kwargs}") if debug.value > DebugLevel.NO_VERBOSE.value else None
+	for key, value in out_kwargs.items():
+		out_kwargs[key] = float(value)
+	return out_kwargs
 
-def get_scan_info(inputDirectory):
+def get_scan_info(inputDirectory, debug):
 		# Read the log file for information about the rototranslation. For this, get all the .log files in the directory inputDirectory
 		
+		logging.warning(" Input directory: " + inputDirectory)
 		logFiles = []
 		for file in os.listdir(inputDirectory):
 			if file.endswith(".log"):
 				logFiles.append(os.path.join(inputDirectory, file))
+		if len(logFiles)==0:
+			# Try to open the folder above
+			new_inputDirectory = os.path.dirname(inputDirectory)
+			for file in os.listdir(new_inputDirectory):
+				if file.endswith(".log"):
+					logFiles.append(os.path.join(new_inputDirectory, file))
+
 		log_kwargs = None
 		
 		if len(logFiles) == 0: # open the first log file
@@ -553,7 +675,7 @@ def get_scan_info(inputDirectory):
 		else:
 			logging.info(f"Opening log file {logFiles[0]}")
 			with open(logFiles[0], "r") as logFile:
-				log_kwargs = get_info_from_log(logFile)
+				log_kwargs = get_info_from_log(logFile, debug)
 		return log_kwargs
 
 
@@ -576,15 +698,59 @@ def Rot_z(angle):
 					 [np.sin(angle), np.cos(angle), 0],
 					 [0, 0, 1]])
 
-def Rototranslate(mesh, angle_x, angle_y, angle_z, transl_x, transl_y, transl_z):
+def CorrectMeshPosition(mesh, scanning_pos, proj_start, vox_size, pixel_size, num_of_files, n_width, n_height):
+
+	roto_translation = np.eye(4, dtype=np.float32)
+
+	magic_number = 784 # Probably from the number of slices in the total scan
+	#voxel_scaling = pixel_size/vox_size
+	h = 0.001 * vox_size * magic_number #- 0.001 * 20 * magic_number
+	roto_translation[:3,3] += np.array([0, 0, -h], dtype=np.float32)
+
+	shape = np.array([n_width, -n_height, 0], dtype=np.float32) # Possibly inverted because of the image coordinate system
+	roto_translation[:3,3] += 0.001*vox_size * shape / 2 # vox_size is in um, the rest is in mm
+
+	roto_translation[:3,3] += np.array([0, 0, scanning_pos], dtype=np.float32)
+
+	#roto_translation[:3,3] *= -1 # Invert the translation to have the mesh in the center
+
+	# print translation
+	#logging.warning(f"translation: {roto_translation[:3,3]}")
+	#logging.warning(f"scanning position: {scanning_pos}")
+	#logging.warning(f"h = {h}")
+
+	# print mesh center point
+	mesh_np = numpy_support.vtk_to_numpy(mesh.GetPoints().GetData())
+	#logging.warning(f"center point: {np.mean(mesh_np, axis=0)}")
+
+	# Apply the transformation to the mesh
+	transform = vtk.vtkTransform()
+	transform.SetMatrix(roto_translation.ravel())
+	transformFilter = vtk.vtkTransformPolyDataFilter()
+	transformFilter.SetInputData(mesh)
+	transformFilter.SetTransform(transform)
+	transformFilter.Update()
+	#return transformFilter.GetOutput()
+	#logging.warning(f"lowest point: {np.min(transformFilter.GetOutput().GetPoints().GetData().GetArray(2))}")
+	#return transformFilter.GetOutput()
+
+	# print mesh center point
+	mesh_np = numpy_support.vtk_to_numpy(transformFilter.GetOutput().GetPoints().GetData())
+	#logging.warning(f"center point: {np.mean(mesh_np, axis=0)}")
+	return transformFilter.GetOutput()
+
+
+def Rototranslate(mesh, roll, pitch, yaw, transl_x, transl_y, transl_z):
 	# Rotate the mesh by the angles and translate it
-	rot_z = Rot_z(angle_z) # alpha
-	rot_y = Rot_y(angle_y) # beta
-	rot_x = Rot_x(angle_x) # gamma
-	rot = np.dot(rot_z, np.dot(rot_y, rot_x))
+	# The angles are in radians
+
+	rot_z = Rot_z(yaw) # alpha
+	rot_y = Rot_y(pitch) # beta
+	rot_x = Rot_x(roll) # gamma
+	R = np.dot(rot_z, np.dot(rot_y, rot_x))
 	rototranslation = np.zeros((4,4))
-	rototranslation[:3,:3] = rot
-	rototranslation[:3,3] = [transl_x, transl_y, transl_z]
+	rototranslation[:3,:3] = R
+	rototranslation[:3,3] = np.dot(-R, np.array([transl_x, transl_y, transl_z]))
 	rototranslation[3,3] = 1
 
 	# Apply the transformation to the mesh
@@ -603,7 +769,7 @@ def process_kernel(**kwargs):
 	outputMesh = slicer.mrmlScene.GetNodeByID(kwargs['outputMesh'])
 
 	target_vertex_count = kwargs['target_vertex_count']
-	rot_trans_kwargs = { 'angle_x': kwargs['roll'], 'angle_y': kwargs['pitch'], 'angle_z': kwargs['yaw'], 'transl_x': kwargs['transl_x'], 'transl_y': kwargs['transl_y'], 'transl_z': kwargs['transl_z'] }
+	rot_trans_kwargs = { 'roll': kwargs['roll'], 'pitch': kwargs['pitch'], 'yaw': kwargs['yaw'], 'transl_x': kwargs['transl_x'], 'transl_y': kwargs['transl_y'], 'transl_z': kwargs['transl_z'] }
 
 
 
@@ -642,29 +808,42 @@ def process_kernel(**kwargs):
 	timings["DecimateMesh"] = -time.time()
 	decimate_kwargs = {}
 	decimate_kwargs['target_reduction'] = (1 - target_vertex_count / mesh.GetNumberOfPoints()) if mesh.GetNumberOfPoints() > target_vertex_count else 0
-	mesh = decimate_mesh(mesh, **decimate_kwargs)
+	mesh = decimate_mesh(mesh, debug, **decimate_kwargs)
 	timings["DecimateMesh"] += time.time()
 
 	# Get input directory
 	inputDirectory = get_data_directory(inputLabelMap, debug)
 
 	# get the log file information
-	log_kwargs = get_scan_info(inputDirectory)
+	log_kwargs = get_scan_info(inputDirectory, debug)
+
+	# Deep copy of the mesh
+	mesh_krypton = vtk.vtkPolyData()
+	mesh_krypton.DeepCopy(mesh)
+
 
 	# Roto-translate the mesh
 	if log_kwargs is not None:
 		timings["Rototranslate"] = -time.time()
-		mesh = Rototranslate(mesh, **rot_trans_kwargs)
+		mesh_krypton = CorrectMeshPosition(mesh_krypton, **log_kwargs) # correct the mesh position, positioning it in the center and accounting for the scanning position and the first section
+		mesh_krypton = Rototranslate(mesh_krypton, **rot_trans_kwargs) # roto-translate the mesh in the Krypton reference frame
+		timings["Rototranslate"] += time.time()
 
 	# put the mesh into the output mesh
 	timings["SetMeshAndSave"] = -time.time()
 	outputMesh.AddDefaultStorageNode()
+	export_mesh_name = outputMesh.GetName() + '_' + str(target_vertex_count//1000) + 'k'
+	if log_kwargs is not None:
+		outputMesh.SetAndObservePolyData(mesh_krypton)
+		outputPath = os.path.join(inputDirectory, export_mesh_name + ".obj")
+		outputMesh.GetStorageNode().SetFileName(outputPath)
+		outputMesh.GetStorageNode().WriteData(outputMesh)
+		logging.info(f"Krypton mesh saved to {outputPath}")
 	outputMesh.SetAndObservePolyData(mesh)
-	print(f'Directory: {inputDirectory}')
-	outputPath = os.path.join(inputDirectory, outputMesh.GetName() + ".obj")
+	outputPath = os.path.join(inputDirectory, export_mesh_name + '_tomo' + ".obj")
 	outputMesh.GetStorageNode().SetFileName(outputPath)
 	outputMesh.GetStorageNode().WriteData(outputMesh)
-	print(f"Mesh saved to {outputPath}")
+	logging.info(f"Mesh saved to {outputPath}")
 	timings["SetMeshAndSave"] += time.time()
 
 	timings["Total"] += time.time()
