@@ -381,7 +381,7 @@ class KryptoniseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 				"inputLabelMap": self._parameterNode.inputLabelMap,
 				"outputMesh": self._parameterNode.outputMesh,
 
-				"target_vertex_count": self.ui.targetVertexCountSliderWidget.value,
+				"target_triangles_count": self.ui.targetVertexCountSliderWidget.value,
 				"roll": self.ui.rollSliderWidget.value,
 				"pitch": self.ui.pitchSliderWidget.value,
 				"yaw": self.ui.yawSliderWidget.value,
@@ -432,7 +432,7 @@ class KryptoniseLogic(ScriptedLoadableModuleLogic):
 				inputLabelMap: vtkMRMLSegmentationNode,
 				outputMesh: vtkMRMLModelNode,
 				debug_level: int = 0,
-				target_vertex_count: int = 1e5,
+				target_triangles_count: int = 1e5,
 				roll: float = 0,
 				pitch: float = 0,
 				yaw: float = 0,
@@ -461,7 +461,7 @@ class KryptoniseLogic(ScriptedLoadableModuleLogic):
 			"inputLabelMap": inputLabelMap.GetID(),
 			"outputMesh": outputMesh.GetID(),
 			"debug_level": int(debug_level),
-			"target_vertex_count": int(target_vertex_count),
+			"target_triangles_count": int(target_triangles_count),
 			"roll": float(roll*np.pi/180),
 			"pitch": float(pitch*np.pi/180),
 			"yaw": float(yaw*np.pi/180),
@@ -768,7 +768,7 @@ def process_kernel(**kwargs):
 	inputLabelMap = slicer.mrmlScene.GetNodeByID(kwargs['inputLabelMap'])
 	outputMesh = slicer.mrmlScene.GetNodeByID(kwargs['outputMesh'])
 
-	target_vertex_count = kwargs['target_vertex_count']
+	target_triangles_count = kwargs['target_triangles_count']
 	rot_trans_kwargs = { 'roll': kwargs['roll'], 'pitch': kwargs['pitch'], 'yaw': kwargs['yaw'], 'transl_x': kwargs['transl_x'], 'transl_y': kwargs['transl_y'], 'transl_z': kwargs['transl_z'] }
 
 
@@ -804,47 +804,51 @@ def process_kernel(**kwargs):
 	mesh = select_biggest_connected_component(mesh)
 	timings["LargestConnectedComponent"] += time.time()
 
-	# decimate the mesh
-	timings["DecimateMesh"] = -time.time()
-	decimate_kwargs = {}
-	decimate_kwargs['target_reduction'] = (1 - target_vertex_count / mesh.GetNumberOfPoints()) if mesh.GetNumberOfPoints() > target_vertex_count else 0
-	mesh = decimate_mesh(mesh, debug, **decimate_kwargs)
-	timings["DecimateMesh"] += time.time()
 
 	# Get input directory
 	inputDirectory = get_data_directory(inputLabelMap, debug)
-
+	
 	# get the log file information
 	log_kwargs = get_scan_info(inputDirectory, debug)
-
-	# Deep copy of the mesh
-	mesh_krypton = vtk.vtkPolyData()
-	mesh_krypton.DeepCopy(mesh)
-
-
+	
 	# Roto-translate the mesh
 	if log_kwargs is not None:
 		timings["Rototranslate"] = -time.time()
-		mesh_krypton = CorrectMeshPosition(mesh_krypton, **log_kwargs) # correct the mesh position, positioning it in the center and accounting for the scanning position and the first section
-		mesh_krypton = Rototranslate(mesh_krypton, **rot_trans_kwargs) # roto-translate the mesh in the Krypton reference frame
+		mesh = CorrectMeshPosition(mesh, **log_kwargs) # correct the mesh position, positioning it in the center and accounting for the scanning position and the first section
+		mesh = Rototranslate(mesh, **rot_trans_kwargs) # roto-translate the mesh in the Krypton reference frame
 		timings["Rototranslate"] += time.time()
 
-	# put the mesh into the output mesh
-	timings["SetMeshAndSave"] = -time.time()
+
+	# create the output mesh
 	outputMesh.AddDefaultStorageNode()
-	export_mesh_name = outputMesh.GetName() + '_' + str(target_vertex_count//1000) + 'k'
-	if log_kwargs is not None:
-		outputMesh.SetAndObservePolyData(mesh_krypton)
-		outputPath = os.path.join(inputDirectory, export_mesh_name + ".obj")
-		outputMesh.GetStorageNode().SetFileName(outputPath)
-		outputMesh.GetStorageNode().WriteData(outputMesh)
-		logging.info(f"Krypton mesh saved to {outputPath}")
+	export_mesh_name = outputMesh.GetName() + '_' + str(mesh.GetNumberOfCells()//1000) + 'k'	
 	outputMesh.SetAndObservePolyData(mesh)
 	outputPath = os.path.join(inputDirectory, export_mesh_name + '_tomo' + ".obj")
 	outputMesh.GetStorageNode().SetFileName(outputPath)
 	outputMesh.GetStorageNode().WriteData(outputMesh)
-	logging.info(f"Mesh saved to {outputPath}")
-	timings["SetMeshAndSave"] += time.time()
+	logging.info(f"The extracted mesh is saved to {outputPath}")
+		
+	# decimate the mesh
+	timings["DecimateMesh"] = -time.time()
+	decimate_kwargs = {}
+	#decimate_kwargs['target_reduction'] = (1 - target_triangles_count / mesh.GetNumberOfCells()) if mesh.GetNumberOfCells() > target_triangles_count else 0
+	#mesh = decimate_mesh(mesh, debug, **decimate_kwargs)
+	decimate_kwargs['target_reduction'] = 0.07
+	#logging.info(f"The initial mesh has {mesh.GetNumberOfCells()} triangles")# if debug.value > DebugLevel.NO_VERBOSE.value else None
+	while mesh.GetNumberOfCells() > target_triangles_count:
+		mesh = decimate_mesh(mesh, debug, **decimate_kwargs)
+		#logging.info(f"Decimated mesh has triangles: {mesh.GetNumberOfCells()}")# if debug.value > DebugLevel.NO_VERBOSE.value else None
+	timings["DecimateMesh"] += time.time()
+
+
+	# put the mesh into the output mesh
+	if log_kwargs is not None: # save the mesh in the Krypton reference frame
+		outputMesh.SetAndObservePolyData(mesh)
+		export_mesh_name = outputMesh.GetName() + '_' + str(target_triangles_count//1000) + 'k'	
+		outputPath = os.path.join(inputDirectory, export_mesh_name + ".obj")
+		outputMesh.GetStorageNode().SetFileName(outputPath)
+		outputMesh.GetStorageNode().WriteData(outputMesh)
+		logging.info(f"Krypton mesh saved to {outputPath}")
 
 	timings["Total"] += time.time()
 
