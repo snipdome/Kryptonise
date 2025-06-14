@@ -205,6 +205,8 @@ class KryptoniseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
 		# Make sure parameter node is initialized (needed for module reload)
 		self.initializeParameterNode()
+  
+		self.onScannerComboBox(0)
 
 	def _update_scanner_parameters(self, init=False):
 		# Fill combobox with possible values, by reading all the uaml files in the Scanner directory and using the name of the file
@@ -249,7 +251,6 @@ class KryptoniseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 					f.write(f"{key}: {value:.8f}\n")
 		self.scanners = scanners
 			
-
 	# when the combobox is changed, update the sliders
 	def onScannerComboBox(self, index):
 		if len(self.scanners) != 0:
